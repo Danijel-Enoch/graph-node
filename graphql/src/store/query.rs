@@ -10,6 +10,7 @@ use graph::{components::store::EntityType, data::graphql::ObjectOrInterface};
 
 use crate::execution::ast as a;
 use crate::schema::ast::{self as sast, FilterOp};
+use crate::schema::is_connection_type;
 
 use super::prefetch::SelectedAttributes;
 
@@ -47,11 +48,35 @@ pub(crate) fn build_query<'a>(
             })
             .collect(),
     });
+
     let mut query = EntityQuery::new(parse_subgraph_id(entity)?, block, entity_types)
         .range(build_range(field, max_first, max_skip)?);
-    if let Some(filter) = build_filter(entity, field, schema)? {
-        query = query.filter(filter);
+
+    let mut filters: Vec<EntityFilter> = vec![];
+
+    // For connection types, we create a filter for the `after` and `before` cursors.
+    let cursor_filter = match is_connection_type(entity.name()) {
+        true => build_cursor(field, max_first, max_skip)?,
+        false => None,
+    };
+
+    match cursor_filter {
+        Some(f) => {
+            filters.push(f);
+        }
+        None => {}
     }
+
+    if let Some(filter) = build_filter(entity, field, schema)? {
+        filters.push(filter);
+    }
+
+    if filters.len() == 1 {
+        query = query.filter(filters.pop().unwrap());
+    } else if filters.len() > 1 {
+        query = query.filter(EntityFilter::And(filters));
+    }
+
     let order = match (
         build_order_by(entity, field, schema)?,
         build_order_direction(field)?,
@@ -124,6 +149,123 @@ pub(crate) fn build_query<'a>(
     };
     query = query.order(order);
     Ok(query)
+}
+
+/// Parses GraphQL arguments into a EntityFilter for after cursor.
+/// Returns None if no cursor arguments are present.
+/// Complies to the Relay Cursor Connections Specification.
+/// See https://relay.dev/graphql/connections.htm#sec-Arguments
+fn build_cursor(
+    field: &a::Field,
+    max_first: u32,
+    max_skip: u32,
+) -> Result<Option<EntityFilter>, QueryExecutionError> {
+    let first = match field.argument_value("first") {
+        Some(r::Value::Int(n)) => {
+            let n = *n;
+            if n > 0 && n <= (max_first as i64) {
+                n as u32
+            } else {
+                return Err(QueryExecutionError::RangeArgumentsError(
+                    "first", max_first, n,
+                ));
+            }
+        }
+        Some(r::Value::Null) | None => 100,
+        _ => unreachable!("first is an Int with a default value"),
+    };
+
+    let last = match field.argument_value("last") {
+        Some(r::Value::Int(n)) => {
+            let n = *n;
+            if n >= 0 && n <= (max_skip as i64) {
+                n as u32
+            } else {
+                return Err(QueryExecutionError::RangeArgumentsError(
+                    "last", max_skip, n,
+                ));
+            }
+        }
+        Some(r::Value::Null) | None => 0,
+        _ => unreachable!("last is an Int with a default value"),
+    };
+
+    let after = match field.argument_value("after") {
+        Some(r::Value::String(s)) => Some(s.clone()),
+        Some(r::Value::Null) | None => None,
+        _ => unreachable!("after is a String"),
+    };
+
+    let before = match field.argument_value("before") {
+        Some(r::Value::String(s)) => Some(s.clone()),
+        Some(r::Value::Null) | None => None,
+        _ => unreachable!("before is a String"),
+    };
+
+    // Validate compatible input arguments
+    if first > 0 && last > 0 {
+        return Err(QueryExecutionError::InvalidCursorOptions(
+            "only one of \"first\" and \"last\" may be provided".to_string(),
+        ));
+    } else if before.is_some() && after.is_some() {
+        return Err(QueryExecutionError::InvalidCursorOptions(
+            "only one of \"before\" and \"after\" may be provided".to_string(),
+        ));
+    } else if first > 0 && before.is_some() {
+        return Err(QueryExecutionError::InvalidCursorOptions(
+            "\"first\" may only be used with \"after\"".to_string(),
+        ));
+    } else if last > 0 && after.is_some() {
+        return Err(QueryExecutionError::InvalidCursorOptions(
+            "\"last\" may only be used with \"before\"".to_string(),
+        ));
+    }
+
+    // If `after` exists then create entity filter
+    let after_sql: Option<EntityFilter> = match after {
+        Some(s) => {
+            let decode_base64 = base64::decode(s.clone());
+
+            match decode_base64 {
+                Ok(decoded) => {
+                    let decoded_value = String::from_utf8(decoded);
+
+                    match decoded_value {
+                        Ok(val) => {
+                            // We encode the cursors using `:` as a separator
+                            // split by `:` and getting the first will give us the ID
+                            // these seems to be `"` around the ID so we need to remove them
+                            let id = val.split(":").collect::<Vec<&str>>()[0].replace("\"", "");
+                            return Ok(Some(EntityFilter::AfterCursor(
+                                "id".to_string(),
+                                Value::String(id.to_string()),
+                            )));
+                        }
+                        Err(_) => {
+                            return Err(QueryExecutionError::InvalidCursorOptions(
+                                "Failed to decode \"after\" cursor value.".to_string(),
+                            ));
+                        }
+                    }
+                }
+                Err(_) => {
+                    return Err(QueryExecutionError::InvalidCursorOptions(
+                        "Invalid base64 value for \"after\" cursor.".to_string(),
+                    ));
+                }
+            }
+        }
+        None => None,
+    };
+
+    match after_sql {
+        Some(_) => {
+            return Ok(after_sql);
+        }
+        None => {
+            return Ok(None);
+        }
+    }
 }
 
 /// Parses GraphQL arguments into a EntityRange, if present.
@@ -328,6 +470,13 @@ fn build_filter_from_object(
             use self::sast::FilterOp::*;
             let (field_name, op) = sast::parse_field_as_filter(key);
 
+            let actual_entity = match is_connection_type(entity.name()) {
+                false => entity,
+                true => schema
+                    .object_or_interface(&entity.name().replace("Connection", ""))
+                    .unwrap(),
+            };
+
             Ok(match op {
                 And => {
                     if ENV_VARS.graphql.disable_bool_filters {
@@ -337,7 +486,9 @@ fn build_filter_from_object(
                     }
 
                     return Ok(EntityFilter::And(build_list_filter_from_object(
-                        entity, object, schema,
+                        actual_entity,
+                        object,
+                        schema,
                     )?));
                 }
                 Or => {
@@ -348,20 +499,23 @@ fn build_filter_from_object(
                     }
 
                     return Ok(EntityFilter::Or(build_list_filter_from_object(
-                        entity, object, schema,
+                        actual_entity,
+                        object,
+                        schema,
                     )?));
                 }
                 Child => match value {
                     DataValue::Object(obj) => {
-                        build_child_filter_from_object(entity, field_name, obj, schema)?
+                        build_child_filter_from_object(actual_entity, field_name, obj, schema)?
                     }
                     _ => {
-                        let field = sast::get_field(entity, &field_name).ok_or_else(|| {
-                            QueryExecutionError::EntityFieldError(
-                                entity.name().to_owned(),
-                                field_name.clone(),
-                            )
-                        })?;
+                        let field =
+                            sast::get_field(actual_entity, &field_name).ok_or_else(|| {
+                                QueryExecutionError::EntityFieldError(
+                                    actual_entity.name().to_owned(),
+                                    field_name.clone(),
+                                )
+                            })?;
                         let ty = &field.field_type;
                         return Err(QueryExecutionError::AttributeTypeError(
                             value.to_string(),
@@ -370,9 +524,9 @@ fn build_filter_from_object(
                     }
                 },
                 _ => {
-                    let field = sast::get_field(entity, &field_name).ok_or_else(|| {
+                    let field = sast::get_field(actual_entity, &field_name).ok_or_else(|| {
                         QueryExecutionError::EntityFieldError(
-                            entity.name().to_owned(),
+                            actual_entity.name().to_owned(),
                             field_name.clone(),
                         )
                     })?;
