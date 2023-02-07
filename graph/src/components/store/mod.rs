@@ -185,6 +185,8 @@ pub enum EntityFilter {
     ChangeBlockGte(BlockNumber),
     Child(Child),
     Fulltext(Attribute, Value),
+    // This is used to filter out entities that are after a cursor
+    AfterCursor(Attribute, Value),
 }
 
 // A somewhat concise string representation of a filter
@@ -229,6 +231,7 @@ impl fmt::Display for EntityFilter {
                 "join on {} with {}({})",
                 child.attr, child.entity_type, child.filter
             ),
+            AfterCursor(a, v) => write!(f, "{} > {}", a, v),
         }
     }
 }
