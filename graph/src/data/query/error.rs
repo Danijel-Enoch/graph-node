@@ -277,7 +277,7 @@ impl fmt::Display for QueryExecutionError {
             SubgraphManifestResolveError(e) => write!(f, "failed to resolve subgraph manifest: {}", e),
             InvalidSubgraphManifest => write!(f, "invalid subgraph manifest file"),
             ResultTooBig(actual, limit) => write!(f, "the result size of {} is larger than the allowed limit of {}", actual, limit),
-            InvalidCursorOptions(message)=>   write!(f, "{}", message),
+            InvalidCursorOptions(message) => write!(f, "{}", message),
             DeploymentNotFound(id_or_name) => write!(f, "deployment `{}` does not exist", id_or_name)
         }
     }
