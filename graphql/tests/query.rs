@@ -2752,6 +2752,41 @@ fn query_forward_cursor_pagination_for_string_ids() {
 }
 
 #[test]
+fn query_forward_cursor_pagination_with_where_filter_for_string_ids() {
+    const QUERY: &str = "{
+        # base64(\"s1\":{writtenBy: \"m1\"})
+         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxIjp7d3JpdHRlbkJ5OiAibTEifQ==\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // base64(\"s3\":{writtenBy: \"m1\"})
+                        startCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
+                        endCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
+
+#[test]
 fn query_forward_cursor_pagination_for_byte_ids() {
     const QUERY: &str = "{
         # 0xf1 encoded as base64
@@ -2774,6 +2809,41 @@ fn query_forward_cursor_pagination_for_byte_ids() {
                         // 0xf2 encoded as base64
                         startCursor: "IjB4ZjIiOg==",
                         endCursor: "IjB4ZjIiOg==",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_forward_cursor_pagination_with_where_filter_for_bytes_ids() {
+    const QUERY: &str = "{
+        # base64(\"0xf1\":{writtenBy: \"m1\"})
+         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxIjp7d3JpdHRlbkJ5OiAibTEifQ==\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // base64(\"0xf3\":{writtenBy: \"m1\"})
+                        startCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
+                        endCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
                     },
                 },
                 };
