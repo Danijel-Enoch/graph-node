@@ -229,13 +229,47 @@ fn build_cursor(
             match decode_base64 {
                 Ok(decoded) => {
                     let decoded_value = String::from_utf8(decoded);
-
                     match decoded_value {
                         Ok(val) => {
-                            // We encode the cursors using `:` as a separator
-                            // split by `:` and getting the first will give us the ID
-                            // these seems to be `"` around the ID so we need to remove them
-                            let id = val.split(":").collect::<Vec<&str>>()[0].replace("\"", "");
+                            // ensure the cursor has the correct separator
+                            if !val.contains("||") {
+                                return Err(QueryExecutionError::InvalidCursorOptions(
+                                    "Incorrect separator used to encode the cursor.".to_string(),
+                                ));
+                            }
+
+                            // We expect the cursor to be in the format of `id||where`
+                            // where `id` is the ID of the entity and `where` is the
+                            // where clause for the query.
+                            let val = val.split("||");
+
+                            // First we ensure that the cursor has where clause if any
+                            // where clause exists in the query
+                            let where_clause = field.argument_value("where");
+                            match where_clause {
+                                Some(where_clause_from_query) => {
+                                    match val.clone().nth(1) {
+                                        Some(where_from_cursor) => {
+                                            if (format!("{}", where_from_cursor.to_string())
+                                                != format!(
+                                                    "{}",
+                                                    where_clause_from_query.to_string()
+                                                ))
+                                            {
+                                                return Err(QueryExecutionError::InvalidCursorOptions(
+                                            "The \"where\" clause in the cursor does not match the \"where\" clause in the query.".to_string(),
+                                        ));
+                                            }
+                                        }
+                                        None => {}
+                                    };
+                                }
+
+                                None => {}
+                            }
+
+                            // The first element in the cursor is the ID of the entity
+                            let id = val.collect::<Vec<&str>>()[0].replace("\"", "");
                             return Ok(Some(EntityFilter::AfterCursor(
                                 "id".to_string(),
                                 Value::String(id.to_string()),

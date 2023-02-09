@@ -2695,12 +2695,12 @@ fn query_cursor_for_paginated_query() {
        }";
 
     run_query(QUERY, |result, id_type| {
-        // cursor generation is determined from id and where fitler
+        // cursor generation is determined from id and where filter
         let cursor = match id_type {
-            // S1 encoded as base64
-            IdType::String => "InMxIjo=",
-            // 0xf1 encoded as base64
-            IdType::Bytes => "IjB4ZjEiOg==",
+            // base64::encode("\"s1\"||")
+            IdType::String => "InMxInx8",
+            // base64::encode("\"0xf1\"||")
+            IdType::Bytes => "IjB4ZjEifHw=",
         };
         let exp = object! {
             songsPaginated:  object! {
@@ -2719,8 +2719,7 @@ fn query_cursor_for_paginated_query() {
 #[test]
 fn query_forward_cursor_pagination_for_string_ids() {
     const QUERY: &str = "{
-        # S1 encoded as base64
-         songsPaginated(first: 1, after: \"InMxIjo=\") {
+         songsPaginated(first: 1, after: \"InMxInx8\") {
            pageInfo {
              hasNextPage
              startCursor
@@ -2736,9 +2735,9 @@ fn query_forward_cursor_pagination_for_string_ids() {
                     songsPaginated:  object! {
                     pageInfo: object! {
                         hasNextPage: true,
-                        // S2 encoded as base64
-                        startCursor: "InMyIjo=",
-                        endCursor: "InMyIjo=",
+                        // base64::encode("\"s2\"||")
+                        startCursor: "InMyInx8",
+                        endCursor: "InMyInx8",
                     },
                 },
                 };
@@ -2754,8 +2753,8 @@ fn query_forward_cursor_pagination_for_string_ids() {
 #[test]
 fn query_forward_cursor_pagination_with_where_filter_for_string_ids() {
     const QUERY: &str = "{
-        # base64(\"s1\":{writtenBy: \"m1\"})
-         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxIjp7d3JpdHRlbkJ5OiAibTEifQ==\") {
+        # base64(\"s1\"||{writtenBy: \"m1\"})
+         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=\") {
            pageInfo {
              hasNextPage
              startCursor
@@ -2771,9 +2770,9 @@ fn query_forward_cursor_pagination_with_where_filter_for_string_ids() {
                     songsPaginated:  object! {
                     pageInfo: object! {
                         hasNextPage: true,
-                        // base64(\"s3\":{writtenBy: \"m1\"})
-                        startCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
-                        endCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
+                        // base64(\"s3\"||{writtenBy: \"m1\"})
+                        startCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=",
+                        endCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0="
                     },
                 },
                 };
@@ -2790,7 +2789,7 @@ fn query_forward_cursor_pagination_with_where_filter_for_string_ids() {
 fn query_forward_cursor_pagination_for_byte_ids() {
     const QUERY: &str = "{
         # 0xf1 encoded as base64
-         songsPaginated(first: 1, after: \"IjB4ZjEiOg==\") {
+         songsPaginated(first: 1, after: \"IjB4ZjEifHw=\") {
            pageInfo {
              hasNextPage
              startCursor
@@ -2806,9 +2805,9 @@ fn query_forward_cursor_pagination_for_byte_ids() {
                     songsPaginated:  object! {
                     pageInfo: object! {
                         hasNextPage: true,
-                        // 0xf2 encoded as base64
-                        startCursor: "IjB4ZjIiOg==",
-                        endCursor: "IjB4ZjIiOg==",
+                          // base64::encode("\"0xf2\"||")
+                        startCursor: "IjB4ZjIifHw=",
+                        endCursor: "IjB4ZjIifHw=",
                     },
                 },
                 };
@@ -2824,8 +2823,8 @@ fn query_forward_cursor_pagination_for_byte_ids() {
 #[test]
 fn query_forward_cursor_pagination_with_where_filter_for_bytes_ids() {
     const QUERY: &str = "{
-        # base64(\"0xf1\":{writtenBy: \"m1\"})
-         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxIjp7d3JpdHRlbkJ5OiAibTEifQ==\") {
+        # base64(\"0xf1\"||{writtenBy: \"m1\"})
+         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=\") {
            pageInfo {
              hasNextPage
              startCursor
@@ -2841,9 +2840,9 @@ fn query_forward_cursor_pagination_with_where_filter_for_bytes_ids() {
                     songsPaginated:  object! {
                     pageInfo: object! {
                         hasNextPage: true,
-                        // base64(\"0xf3\":{writtenBy: \"m1\"})
-                        startCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
-                        endCursor: "InMzIjp7d3JpdHRlbkJ5OiAibTEifQ==",
+                        // base64(\"0xf3\"||{writtenBy: \"m1\"})
+                        startCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=",
+                        endCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=",
                     },
                 },
                 };
@@ -2851,6 +2850,102 @@ fn query_forward_cursor_pagination_with_where_filter_for_bytes_ids() {
                 let data = extract_data!(result).unwrap();
                 assert_eq!(data, exp);
             }
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_error_if_cursor_not_base64_encoded() {
+    const QUERY: &str = "{
+         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"please_fail\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => match result.to_result() {
+                Ok(_) => {
+                    panic!("Expected error")
+                }
+                Err(e) => {
+                    let first_error = e.get(0).unwrap();
+
+                    assert_eq!(
+                        first_error.to_string(),
+                        "Invalid base64 value for \"after\" cursor."
+                    );
+                }
+            },
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_error_if_cursor_does_not_contain_filters() {
+    const QUERY: &str = "{
+         songsPaginated(first: 1, where: { writtenBy: \"m1\" }, after: \"InMxInx8e2JhbmQ6Im0xIn0=\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => match result.to_result() {
+                Ok(_) => {
+                    panic!("Expected error")
+                }
+                Err(e) => {
+                    let first_error = e.get(0).unwrap();
+                    assert_eq!(
+                        first_error.to_string(),
+                        "The \"where\" clause in the cursor does not match the \"where\" clause in the query."
+                    );
+                }
+            },
+            _ => {}
+        };
+    });
+}
+
+
+#[test]
+fn query_error_if_cursor_uses_incorrect_separator() {
+    const QUERY: &str = "{
+        # instead of || we use :: as separator
+         songsPaginated(after: \"InMxIjo6e2JhbmQ6Im0xIn0=\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => match result.to_result() {
+                Ok(_) => {
+                    panic!("Expected error")
+                }
+                Err(e) => {
+                    let first_error = e.get(0).unwrap();
+                    assert_eq!(
+                        first_error.to_string(),
+                        "Incorrect separator used to encode the cursor."
+                    );
+                }
+            },
             _ => {}
         };
     });

@@ -298,10 +298,10 @@ impl StoreResolver {
 
         match where_filter {
             Some(v) => {
-                return base64::encode(format!("{}:{}", id, v.to_string()));
+                return base64::encode(format!("{}||{}", id, v.to_string()));
             }
             _ => {
-                return base64::encode(format!("{}:{}", id, ""));
+                return base64::encode(format!("{}||{}", id, ""));
             }
         }
     }
