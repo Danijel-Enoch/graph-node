@@ -1351,22 +1351,6 @@ impl<'a> QueryFilter<'a> {
         BlockRangeColumn::new(self.table, "c.", *block_number_gte).changed_since(&mut out)
     }
 
-    fn after_cursor(
-        &self,
-        attribute: &Attribute,
-        value: &Value,
-        mut out: AstPass<Pg>,
-    ) -> QueryResult<()> {
-        let column = self.column(attribute);
-
-        out.push_sql(&self.table_prefix);
-        out.push_identifier(column.name.as_str())?;
-        out.push_sql(" > ");
-        out.push_bind_param::<Text, _>(&value.to_string())?;
-
-        Ok(())
-    }
-
     fn starts_or_ends_with(
         &self,
         attribute: &Attribute,
@@ -1465,7 +1449,7 @@ impl<'a> QueryFragment<Pg> for QueryFilter<'a> {
                 child.derived,
                 out,
             )?,
-            AfterCursor(attr, cursor) => self.after_cursor(attr, cursor, out)?,
+            AfterCursor(attr, cursor) => self.compare(attr, cursor, c::Greater, out)?,
         }
         Ok(())
     }

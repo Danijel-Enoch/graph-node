@@ -2715,3 +2715,73 @@ fn query_cursor_for_paginated_query() {
         assert_eq!(data, exp);
     });
 }
+
+#[test]
+fn query_forward_cursor_pagination_for_string_ids() {
+    const QUERY: &str = "{
+        # S1 encoded as base64
+         songsPaginated(first: 1, after: \"InMxIjo=\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // S2 encoded as base64
+                        startCursor: "InMyIjo=",
+                        endCursor: "InMyIjo=",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_forward_cursor_pagination_for_byte_ids() {
+    const QUERY: &str = "{
+        # 0xf1 encoded as base64
+         songsPaginated(first: 1, after: \"IjB4ZjEiOg==\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::Bytes => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // 0xf2 encoded as base64
+                        startCursor: "IjB4ZjIiOg==",
+                        endCursor: "IjB4ZjIiOg==",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
