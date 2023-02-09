@@ -269,6 +269,8 @@ fn build_cursor(
                             }
 
                             // The first element in the cursor is the ID of the entity
+                            // Something seems to add `"` to the beginning and end of the ID when encoding
+                            // so we remove them here
                             let id = val.collect::<Vec<&str>>()[0].replace("\"", "");
                             return Ok(Some(EntityFilter::AfterCursor(
                                 "id".to_string(),
