@@ -187,6 +187,8 @@ pub enum EntityFilter {
     Fulltext(Attribute, Value),
     // This is used to filter out entities that are after a cursor
     AfterCursor(Attribute, Value),
+    // This is used to filter out entities that are before a cursor
+    BeforeCursor(Attribute, Value),
 }
 
 // A somewhat concise string representation of a filter
@@ -232,6 +234,7 @@ impl fmt::Display for EntityFilter {
                 child.attr, child.entity_type, child.filter
             ),
             AfterCursor(a, v) => write!(f, "{} > {}", a, v),
+            BeforeCursor(a, v) => write!(f, "{} < {}", a, v),
         }
     }
 }

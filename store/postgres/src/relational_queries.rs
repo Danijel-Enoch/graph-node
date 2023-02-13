@@ -970,6 +970,7 @@ impl<'a> QueryFilter<'a> {
             | EndsWithNoCase(attr, _)
             | NotEndsWith(attr, _)
             | AfterCursor(attr, _)
+            | BeforeCursor(attr, _)
             | NotEndsWithNoCase(attr, _) => {
                 table.column_for_field(attr)?;
             }
@@ -1450,6 +1451,7 @@ impl<'a> QueryFragment<Pg> for QueryFilter<'a> {
                 out,
             )?,
             AfterCursor(attr, cursor) => self.compare(attr, cursor, c::Greater, out)?,
+            BeforeCursor(attr, cursor) => self.compare(attr, cursor, c::Less, out)?,
         }
         Ok(())
     }
