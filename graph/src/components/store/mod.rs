@@ -233,8 +233,6 @@ impl fmt::Display for EntityFilter {
                 "join on {} with {}({})",
                 child.attr, child.entity_type, child.filter
             ),
-            AfterCursor(a, v) => write!(f, "{} > {}", a, v),
-            BeforeCursor(a, v) => write!(f, "{} < {}", a, v),
         }
     }
 }
