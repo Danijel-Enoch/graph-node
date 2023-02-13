@@ -3088,3 +3088,65 @@ fn query_backward_cursor_pagination_with_where_filter_for_bytes_ids() {
         };
     });
 }
+
+#[test]
+fn query_error_if_first_is_used_with_before() {
+    const QUERY: &str = "{
+         songsPaginated(first: 1, before:\"just crash\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => match result.to_result() {
+                Ok(_) => {
+                    panic!("Expected error")
+                }
+                Err(e) => {
+                    let first_error = e.get(0).unwrap();
+                    assert_eq!(
+                        first_error.to_string(),
+                        "\"first\" may only be used with \"after\""
+                    );
+                }
+            },
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_error_if_last_is_used_with_after() {
+    const QUERY: &str = "{
+         songsPaginated(last: 1, after:\"just crash\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => match result.to_result() {
+                Ok(_) => {
+                    panic!("Expected error")
+                }
+                Err(e) => {
+                    let first_error = e.get(0).unwrap();
+                    assert_eq!(
+                        first_error.to_string(),
+                        "\"last\" may only be used with \"before\""
+                    );
+                }
+            },
+            _ => {}
+        };
+    });
+}
