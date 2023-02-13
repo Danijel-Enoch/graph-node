@@ -330,55 +330,40 @@ impl StoreResolver {
         field: &a::Field,
         children: Vec<r::Value>,
     ) -> Result<r::Value, QueryExecutionError> {
-        let first_arg = field
-            .arguments
-            .iter()
-            .find_map(|arg| match arg.0.eq("first") {
-                true => Some(arg.1.clone()),
-                false => None,
-            });
+        let mut connection_response_map = BTreeMap::new();
+        let mut page_info_map = BTreeMap::new();
 
-        match first_arg {
-            Some(r::Value::Int(_)) => {
-                let mut connection_response_map = BTreeMap::new();
-                let mut page_info_map = BTreeMap::new();
+        // TODO: Make it work with SQL
+        page_info_map.insert("hasNextPage".into(), r::Value::Boolean(true));
+        page_info_map.insert("hasPreviousPage".into(), r::Value::Boolean(true));
+        // ---------------------------------
 
-                // TODO: Make it work with SQL
-                page_info_map.insert("hasNextPage".into(), r::Value::Boolean(true));
-                page_info_map.insert("hasPreviousPage".into(), r::Value::Boolean(true));
-                // ---------------------------------
+        // Encode the cursors for the first and last elements
+        let start_cursor = self.compose_cursor(children.first(), field);
+        let end_cursor = self.compose_cursor(children.last(), field);
 
-                // Encode the cursors for the first and last elements
-                let start_cursor = self.compose_cursor(children.first(), field);
-                let end_cursor = self.compose_cursor(children.last(), field);
+        page_info_map.insert("startCursor".into(), r::Value::String(start_cursor));
+        page_info_map.insert("endCursor".into(), r::Value::String(end_cursor));
 
-                page_info_map.insert("startCursor".into(), r::Value::String(start_cursor));
-                page_info_map.insert("endCursor".into(), r::Value::String(end_cursor));
+        connection_response_map.insert("pageInfo".into(), r::Value::object(page_info_map));
+        connection_response_map.insert(
+            "edges".into(),
+            r::Value::List(
+                children
+                    .into_iter()
+                    .map(|child| {
+                        let mut edge_map = BTreeMap::<Word, r::Value>::new();
+                        let cursor = self.compose_cursor(Some(&child), field);
+                        edge_map.insert("node".into(), child);
+                        edge_map.insert("cursor".into(), r::Value::String(cursor));
 
-                connection_response_map.insert("pageInfo".into(), r::Value::object(page_info_map));
-                connection_response_map.insert(
-                    "edges".into(),
-                    r::Value::List(
-                        children
-                            .into_iter()
-                            .map(|child| {
-                                let mut edge_map = BTreeMap::<Word, r::Value>::new();
-                                let cursor = self.compose_cursor(Some(&child), field);
-                                edge_map.insert("node".into(), child);
-                                edge_map.insert("cursor".into(), r::Value::String(cursor));
+                        r::Value::object(edge_map)
+                    })
+                    .collect::<Vec<r::Value>>(),
+            ),
+        );
 
-                                r::Value::object(edge_map)
-                            })
-                            .collect::<Vec<r::Value>>(),
-                    ),
-                );
-
-                return Ok(r::Value::object(connection_response_map));
-            }
-            _ => {
-                return Err(QueryExecutionError::InvalidFilterError);
-            }
-        }
+        return Ok(r::Value::object(connection_response_map));
     }
 }
 
