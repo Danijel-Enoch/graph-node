@@ -203,7 +203,6 @@ fn build_cursor(
         _ => unreachable!("before is a String"),
     };
 
-    println!("first: {}, last: {}", first, last);
     // Validate compatible input arguments
     if first > 0 && last > 0 {
         return Err(QueryExecutionError::InvalidCursorOptions(
