@@ -2949,3 +2949,142 @@ fn query_error_if_cursor_uses_incorrect_separator() {
         };
     });
 }
+
+#[test]
+fn query_backward_cursor_pagination_for_string_ids() {
+    const QUERY: &str = "{
+         songsPaginated(last: 1, before: \"InMyInx8\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // base64::encode("\"s1\"||")
+                        startCursor: "InMxInx8",
+                        endCursor: "InMxInx8",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_backward_cursor_pagination_for_byte_ids() {
+    const QUERY: &str = "{
+        # 0xf2 encoded as base64
+         songsPaginated(last: 1, before: \"IjB4ZjIifHw=\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::Bytes => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                          // base64::encode("\"0xf1\"||")
+                        startCursor: "IjB4ZjEifHw=",
+                        endCursor: "IjB4ZjEifHw=",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_backward_cursor_pagination_with_where_filter_for_string_ids() {
+    const QUERY: &str = "{
+        # base64(\"s3\"||{writtenBy: \"m1\"})
+         songsPaginated(last: 1, where: { writtenBy: \"m1\" }, before: \"InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // base64(\"s1\"||{writtenBy: \"m1\"})
+                        startCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=",
+                        endCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0="
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}
+
+#[test]
+fn query_backward_cursor_pagination_with_where_filter_for_bytes_ids() {
+    const QUERY: &str = "{
+        # base64(\"0xf3\"||{writtenBy: \"m1\"})
+         songsPaginated(last: 1, where: { writtenBy: \"m1\" }, before: \"InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=\") {
+           pageInfo {
+             hasNextPage
+             startCursor
+             endCursor
+           }
+         }
+       }";
+
+    run_query(QUERY, |result, id_type| {
+        match id_type {
+            IdType::String => {
+                let exp = object! {
+                    songsPaginated:  object! {
+                    pageInfo: object! {
+                        hasNextPage: true,
+                        // base64(\"0xf1\"||{writtenBy: \"m1\"})
+                        startCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=",
+                        endCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=",
+                    },
+                },
+                };
+
+                let data = extract_data!(result).unwrap();
+                assert_eq!(data, exp);
+            }
+            _ => {}
+        };
+    });
+}

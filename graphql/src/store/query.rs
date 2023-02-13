@@ -49,22 +49,24 @@ pub(crate) fn build_query<'a>(
             .collect(),
     });
 
-    let mut query = EntityQuery::new(parse_subgraph_id(entity)?, block, entity_types)
-        .range(build_range(field, max_first, max_skip)?);
+    let mut query = EntityQuery::new(parse_subgraph_id(entity)?, block, entity_types);
 
     let mut filters: Vec<EntityFilter> = vec![];
 
     // For connection types, we create a filter for the `after` and `before` cursors.
-    let cursor_filter = match is_connection_type(entity.name()) {
-        true => build_cursor(field, max_first, max_skip)?,
+    let cursor_ranges_and_filter = match is_connection_type(entity.name()) {
+        true => build_cursor(field, max_first)?,
         false => None,
     };
 
-    match cursor_filter {
-        Some(f) => {
-            filters.push(f);
+    match cursor_ranges_and_filter {
+        Some((range, filter)) => {
+            query = query.range(range);
+            filters.push(filter);
         }
-        None => {}
+        None => {
+            query = query.range(build_range(field, max_first, max_skip)?);
+        }
     }
 
     if let Some(filter) = build_filter(entity, field, schema)? {
@@ -157,32 +159,31 @@ pub(crate) fn build_query<'a>(
 /// See https://relay.dev/graphql/connections.htm#sec-Arguments
 fn build_cursor(
     field: &a::Field,
-    max_first: u32,
-    max_skip: u32,
-) -> Result<Option<EntityFilter>, QueryExecutionError> {
+    max_lookup: u32,
+) -> Result<Option<(EntityRange, EntityFilter)>, QueryExecutionError> {
     let first = match field.argument_value("first") {
         Some(r::Value::Int(n)) => {
             let n = *n;
-            if n > 0 && n <= (max_first as i64) {
+            if n > 0 && n <= (max_lookup as i64) {
                 n as u32
             } else {
                 return Err(QueryExecutionError::RangeArgumentsError(
-                    "first", max_first, n,
+                    "first", max_lookup, n,
                 ));
             }
         }
-        Some(r::Value::Null) | None => 100,
+        Some(r::Value::Null) | None => 0,
         _ => unreachable!("first is an Int with a default value"),
     };
 
     let last = match field.argument_value("last") {
         Some(r::Value::Int(n)) => {
             let n = *n;
-            if n >= 0 && n <= (max_skip as i64) {
+            if n >= 0 && n <= (max_lookup as i64) {
                 n as u32
             } else {
                 return Err(QueryExecutionError::RangeArgumentsError(
-                    "last", max_skip, n,
+                    "last", max_lookup, n,
                 ));
             }
         }
@@ -202,6 +203,7 @@ fn build_cursor(
         _ => unreachable!("before is a String"),
     };
 
+    println!("first: {}, last: {}", first, last);
     // Validate compatible input arguments
     if first > 0 && last > 0 {
         return Err(QueryExecutionError::InvalidCursorOptions(
@@ -222,7 +224,7 @@ fn build_cursor(
     }
 
     // If `after` exists then create entity filter
-    let after_sql: Option<EntityFilter> = match after {
+    match after {
         Some(s) => {
             let decode_base64 = base64::decode(s.clone());
 
@@ -235,10 +237,15 @@ fn build_cursor(
                             let id = get_id_from_decoded_cursor(val, field);
                             match id {
                                 Ok(id) => {
-                                    return Ok(Some(EntityFilter::AfterCursor(
+                                    let filter = EntityFilter::AfterCursor(
                                         "id".to_string(),
                                         Value::String(id.to_string()),
-                                    )));
+                                    );
+                                    let range = EntityRange {
+                                        first: Some(first),
+                                        skip: 0,
+                                    };
+                                    return Ok(Some((range, filter)));
                                 }
                                 Err(error) => {
                                     return Err(error);
@@ -259,17 +266,56 @@ fn build_cursor(
                 }
             }
         }
-        None => None,
+        None => None::<(EntityRange, EntityFilter)>,
     };
 
-    match after_sql {
-        Some(_) => {
-            return Ok(after_sql);
+    // If `before` exists then create entity filter
+    match before {
+        Some(s) => {
+            let decode_base64 = base64::decode(s.clone());
+
+            match decode_base64 {
+                Ok(decoded) => {
+                    let decoded_value = String::from_utf8(decoded);
+
+                    match decoded_value {
+                        Ok(val) => {
+                            let id = get_id_from_decoded_cursor(val, field);
+                            match id {
+                                Ok(id) => {
+                                    let filter = EntityFilter::BeforeCursor(
+                                        "id".to_string(),
+                                        Value::String(id.to_string()),
+                                    );
+                                    let range = EntityRange {
+                                        first: Some(last),
+                                        skip: 0,
+                                    };
+                                    return Ok(Some((range, filter)));
+                                }
+                                Err(error) => {
+                                    return Err(error);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            return Err(QueryExecutionError::InvalidCursorOptions(
+                                "Failed to decode \"before\" cursor value.".to_string(),
+                            ));
+                        }
+                    }
+                }
+                Err(_) => {
+                    return Err(QueryExecutionError::InvalidCursorOptions(
+                        "Invalid base64 value for \"before\" cursor.".to_string(),
+                    ));
+                }
+            }
         }
-        None => {
-            return Ok(None);
-        }
-    }
+        None => None::<(EntityRange, EntityFilter)>,
+    };
+
+    return Ok(None);
 }
 
 /// Takes in a decoded base64 cursor value and returns the ID of the entity
