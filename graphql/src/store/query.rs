@@ -192,13 +192,13 @@ fn build_cursor(
     };
 
     let after = match field.argument_value("after") {
-        Some(r::Value::String(s)) => Some(s.clone()),
+        Some(r::Value::String(s)) => Some(s),
         Some(r::Value::Null) | None => None,
         _ => unreachable!("after is a String"),
     };
 
     let before = match field.argument_value("before") {
-        Some(r::Value::String(s)) => Some(s.clone()),
+        Some(r::Value::String(s)) => Some(s),
         Some(r::Value::Null) | None => None,
         _ => unreachable!("before is a String"),
     };
@@ -225,7 +225,7 @@ fn build_cursor(
     // If `after` exists then create entity filter
     match after {
         Some(s) => {
-            let decode_base64 = base64::decode(s.clone());
+            let decode_base64 = base64::decode(s);
 
             match decode_base64 {
                 Ok(decoded) => {
@@ -233,12 +233,12 @@ fn build_cursor(
 
                     match decoded_value {
                         Ok(val) => {
-                            let id = get_id_from_decoded_cursor(val, field);
+                            let id = get_id_from_decoded_cursor(val.as_str(), field);
                             match id {
                                 Ok(id) => {
                                     let filter = EntityFilter::GreaterThan(
                                         "id".to_string(),
-                                        Value::String(id.to_string()),
+                                        Value::String(id),
                                     );
                                     let range = EntityRange {
                                         first: Some(first),
@@ -271,7 +271,7 @@ fn build_cursor(
     // If `before` exists then create entity filter
     match before {
         Some(s) => {
-            let decode_base64 = base64::decode(s.clone());
+            let decode_base64 = base64::decode(s);
 
             match decode_base64 {
                 Ok(decoded) => {
@@ -279,7 +279,7 @@ fn build_cursor(
 
                     match decoded_value {
                         Ok(val) => {
-                            let id = get_id_from_decoded_cursor(val, field);
+                            let id = get_id_from_decoded_cursor(val.as_str(), field);
                             match id {
                                 Ok(id) => {
                                     let filter = EntityFilter::LessThan(
@@ -320,7 +320,7 @@ fn build_cursor(
 /// Takes in a decoded base64 cursor value and returns the ID of the entity
 /// that the cursor is pointing to.
 fn get_id_from_decoded_cursor(
-    cursor: String,
+    cursor: &str,
     field: &a::Field,
 ) -> Result<String, QueryExecutionError> {
     // ensure the cursor has the correct separator
@@ -610,7 +610,7 @@ fn build_filter_from_object(
                             sast::get_field(actual_entity, &field_name).ok_or_else(|| {
                                 QueryExecutionError::EntityFieldError(
                                     actual_entity.name().to_owned(),
-                                    field_name.clone(),
+                                    field_name,
                                 )
                             })?;
                         let ty = &field.field_type;
