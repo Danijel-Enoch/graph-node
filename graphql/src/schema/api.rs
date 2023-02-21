@@ -106,7 +106,7 @@ pub fn api_schema(input_schema: &Document) -> Result<Document, APISchemaError> {
     add_types_for_object_types(&mut schema, &object_types)?;
     add_types_for_interface_types(&mut schema, &interface_types)?;
     add_field_arguments(&mut schema, input_schema)?;
-    // Not the order of the calls is important here.
+    // Note: The order of the calls is important here.
     // we need to add connection types before enriching the types with connections
     enrich_type_fields_with_connections(&mut schema);
     add_query_type(&mut schema, &object_types, &interface_types)?;
