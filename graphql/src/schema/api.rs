@@ -277,7 +277,7 @@ fn enrich_type_fields_with_connections(schema: &mut Document) {
 }
 
 // Adds `*_Connection` types for the given object types to the schema.
-fn add_connection_types_for_objects(schema: &mut Document, object_types: &Vec<&ObjectType>) -> () {
+fn add_connection_types_for_objects(schema: &mut Document, object_types: &[&ObjectType]) -> () {
     for object_type in object_types {
         if !object_type.name.eq(SCHEMA_TYPE_NAME) {
             add_connection_type(schema, object_type.name.as_str());
