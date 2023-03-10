@@ -185,10 +185,8 @@ pub enum EntityFilter {
     ChangeBlockGte(BlockNumber),
     Child(Child),
     Fulltext(Attribute, Value),
-    // This is used to filter out entities that are after a cursor
-    AfterCursor(Attribute, Value),
-    // This is used to filter out entities that are before a cursor
-    BeforeCursor(Attribute, Value),
+    // After cursor
+    // Before cursor
 }
 
 // A somewhat concise string representation of a filter

@@ -1089,6 +1089,8 @@ mod tests {
             arguments,
             directives: vec![],
             selection_set: a::SelectionSet::new(vec![obj_type]),
+            has_next_page: false,
+            has_previous_page: false,
         }
     }
 

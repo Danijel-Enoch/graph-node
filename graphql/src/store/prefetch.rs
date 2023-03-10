@@ -431,6 +431,7 @@ impl<'a> Join<'a> {
         previous_collection: &EntityCollection,
     ) -> Vec<EntityWindow> {
         let mut windows = vec![];
+        println!("Join::windows: parents: {:?}", parents);
         let column_names_map = previous_collection.entity_types_and_column_names();
         for cond in &self.conds {
             let mut parents_by_id = parents
@@ -640,7 +641,7 @@ fn execute_selection_set<'a>(
                 &field_type,
                 collected_columns,
             ) {
-                Ok((children, trace)) => {
+                Ok((children, trace, _, __)) => {
                     match execute_selection_set(
                         resolver,
                         ctx,
@@ -672,6 +673,15 @@ fn execute_selection_set<'a>(
     }
 }
 
+type ExecuteFieldReturn = (
+    Vec<Node>,
+    Trace,
+    // has_next_page
+    bool,
+    // has_previous_page
+    bool,
+);
+
 /// Executes a field.
 fn execute_field(
     resolver: &StoreResolver,
@@ -681,7 +691,7 @@ fn execute_field(
     field: &a::Field,
     field_definition: &s::Field,
     selected_attrs: SelectedAttributes,
-) -> Result<(Vec<Node>, Trace), Vec<QueryExecutionError>> {
+) -> Result<ExecuteFieldReturn, Vec<QueryExecutionError>> {
     let multiplicity = if sast::is_list_or_non_null_list_field(field_definition)
         || is_connection_type(&field_definition.field_type.get_base_type().to_string())
     {
@@ -713,7 +723,7 @@ fn fetch(
     field: &a::Field,
     multiplicity: ChildMultiplicity,
     selected_attrs: SelectedAttributes,
-) -> Result<(Vec<Node>, Trace), QueryExecutionError> {
+) -> Result<ExecuteFieldReturn, QueryExecutionError> {
     let mut query = build_query(
         join.child_type,
         resolver.block_number(),
@@ -746,10 +756,48 @@ fn fetch(
         // by the parent list
         let windows = join.windows(parents, multiplicity, &query.collection);
         if windows.is_empty() {
-            return Ok((vec![], Trace::None));
+            return Ok((vec![], Trace::None, false, false));
         }
         query.collection = EntityCollection::Window(windows);
     }
+
+    println!(
+        "field: {:?}, is_connection: {}",
+        field.name,
+        field.is_connection_type()
+    );
+
+    let (has_next_page, has_previous_page) = match field.is_connection_type() {
+        true => {
+            if field.has_next_page {
+                // if hasNextPage
+                let mut next_page_query = query.clone();
+                println!(
+                    "ab: {:?}, add: {:?}",
+                    next_page_query.range.first,
+                    next_page_query.range.first.unwrap().checked_add(1)
+                );
+                let initial_range = next_page_query.range.first.unwrap();
+                next_page_query.range.first = initial_range.checked_add(1);
+                let res: Result<Vec<Node>, QueryExecutionError> = resolver
+                    .store
+                    .find_query_values(next_page_query)
+                    .map(|(values, _)| values.into_iter().map(|entity| entity.into()).collect());
+                println!("res: {:#?}", res);
+                (res.as_ref().unwrap().len() > initial_range as usize, false)
+            } else if field.has_previous_page {
+                // TODO: implement this
+                // clone the query
+                // Reverse the cursor and orderby
+                // set the range to be 1
+                (false, true)
+            } else {
+                (false, false)
+            }
+        }
+        false => (false, false),
+    };
+
     resolver
         .store
         .find_query_values(query)
@@ -757,6 +805,8 @@ fn fetch(
             (
                 values.into_iter().map(|entity| entity.into()).collect(),
                 trace,
+                has_next_page,
+                has_previous_page,
             )
         })
 }
