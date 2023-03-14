@@ -786,7 +786,7 @@ fn fetch(
                     .store
                     .find_query_values(next_page_query)
                     .map(|(values, _)| values.into_iter().map(|entity| entity.into()).collect());
-                // println!("res: {:#?}", res);
+                println!("res: {:?}", res.as_ref().unwrap().len());
 
                 (res.as_ref().unwrap().len() > initial_range as usize, false)
             } else if field.has_previous_page {

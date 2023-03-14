@@ -252,7 +252,7 @@ impl Field {
     }
 
     pub fn is_connection_type(&self) -> bool {
-        is_connection_type(&self.name)
+        is_connection_type(&self.name) || self.name.ends_with("Paginated")
     }
 
     /// Looks up the value of an argument for this field

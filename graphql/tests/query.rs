@@ -2769,7 +2769,7 @@ fn query_forward_cursor_pagination_with_where_filter_for_string_ids() {
                 let exp = object! {
                     songsPaginated:  object! {
                     pageInfo: object! {
-                        hasNextPage: true,
+                        hasNextPage: false,
                         // base64(\"s3\"||{writtenBy: \"m1\"})
                         startCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=",
                         endCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0="
@@ -2839,7 +2839,7 @@ fn query_forward_cursor_pagination_with_where_filter_for_bytes_ids() {
                 let exp = object! {
                     songsPaginated:  object! {
                     pageInfo: object! {
-                        hasNextPage: true,
+                        hasNextPage: false,
                         // base64(\"0xf3\"||{writtenBy: \"m1\"})
                         startCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=",
                         endCursor: "InMzInx8e3dyaXR0ZW5CeTogIm0xIn0=",
@@ -2968,7 +2968,7 @@ fn query_backward_cursor_pagination_for_string_ids() {
                 let exp = object! {
                     songsPaginated:  object! {
                     pageInfo: object! {
-                        hasNextPage: true,
+                        hasNextPage: false,
                         // base64::encode("\"s1\"||")
                         startCursor: "InMxInx8",
                         endCursor: "InMxInx8",
@@ -3003,7 +3003,7 @@ fn query_backward_cursor_pagination_for_byte_ids() {
                 let exp = object! {
                     songsPaginated:  object! {
                     pageInfo: object! {
-                        hasNextPage: true,
+                        hasNextPage: false,
                           // base64::encode("\"0xf1\"||")
                         startCursor: "IjB4ZjEifHw=",
                         endCursor: "IjB4ZjEifHw=",
@@ -3038,7 +3038,7 @@ fn query_backward_cursor_pagination_with_where_filter_for_string_ids() {
                 let exp = object! {
                     songsPaginated:  object! {
                     pageInfo: object! {
-                        hasNextPage: true,
+                        hasNextPage: false,
                         // base64(\"s1\"||{writtenBy: \"m1\"})
                         startCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=",
                         endCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0="
@@ -3073,7 +3073,7 @@ fn query_backward_cursor_pagination_with_where_filter_for_bytes_ids() {
                 let exp = object! {
                     songsPaginated:  object! {
                     pageInfo: object! {
-                        hasNextPage: true,
+                        hasNextPage: false,
                         // base64(\"0xf1\"||{writtenBy: \"m1\"})
                         startCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=",
                         endCursor: "InMxInx8e3dyaXR0ZW5CeTogIm0xIn0=",
