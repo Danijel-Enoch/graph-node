@@ -333,8 +333,21 @@ impl StoreResolver {
         let mut connection_response_map = BTreeMap::new();
         let mut page_info_map = BTreeMap::new();
 
+        // The `hasNextPage` field is a bit special and is computed on-demand.
+        // We compute this during the `prefetch::fetch` and insert it to the first element
+        // of the `children` vector. We then extract it here and remove it from the
+        // first element of the `children` vector.
+        let has_next_page = children
+            .first()
+            .unwrap_or(&r::Value::Null)
+            .get_optional("pageInfo:hasNextPage")
+            .unwrap_or(Some(false));
+
+        page_info_map.insert(
+            "hasNextPage".into(),
+            r::Value::Boolean(has_next_page.unwrap_or(false)),
+        );
         // TODO: Make it work with SQL
-        page_info_map.insert("hasNextPage".into(), r::Value::Boolean(true));
         page_info_map.insert("hasPreviousPage".into(), r::Value::Boolean(true));
         // ---------------------------------
 

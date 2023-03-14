@@ -420,6 +420,8 @@ impl<'a> Join<'a> {
             // query are always joined first, and may then be overwritten by the merged selection
             // set under the object type condition. See also: e0d6da3e-60cf-41a5-b83c-b60a7a766d4a
             let values = parent.id().ok().and_then(|id| grouped.get(&*id).cloned());
+            // figure out a way to get next/prev from the query
+            // set hasNext and has prev page info field here
             parent.set_children(response_key.to_owned(), values.unwrap_or_default());
         }
     }
@@ -762,11 +764,12 @@ fn fetch(
     }
 
     println!(
-        "field: {:?}, is_connection: {}",
+        "field: {:?}, is_connection: {}, has_next_page: {}",
         field.name,
-        field.is_connection_type()
+        field.is_connection_type(),
+        field.has_next_page
     );
-
+    println!("query: {:?}", query);
     let (has_next_page, has_previous_page) = match field.is_connection_type() {
         true => {
             if field.has_next_page {
@@ -783,10 +786,12 @@ fn fetch(
                     .store
                     .find_query_values(next_page_query)
                     .map(|(values, _)| values.into_iter().map(|entity| entity.into()).collect());
-                println!("res: {:#?}", res);
+                // println!("res: {:#?}", res);
+
                 (res.as_ref().unwrap().len() > initial_range as usize, false)
             } else if field.has_previous_page {
                 // TODO: implement this
+
                 // clone the query
                 // Reverse the cursor and orderby
                 // set the range to be 1
@@ -797,13 +802,34 @@ fn fetch(
         }
         false => (false, false),
     };
-
+    // we have flat list of items here from the store.
+    // once we get Node from the store -
+    // the node should have `parent_id` if there is a parent
+    //
+    // {"pageInfo:hasNextPage"}
+    // fetch more items from the store
+    // then remove the last item from the result vector
     resolver
         .store
         .find_query_values(query)
         .map(|(values, trace)| {
             (
-                values.into_iter().map(|entity| entity.into()).collect(),
+                values
+                    .into_iter()
+                    .enumerate()
+                    .map(|(count, mut entity)| {
+                        // we insert on first value in the list only
+                        // so when generating the result we can check if the value is there
+                        // and if it is there we can add the pageInfo
+                        if has_next_page && count == 0 {
+                            entity.insert(
+                                Word::from("pageInfo:hasNextPage"),
+                                r::Value::Boolean(has_next_page),
+                            );
+                        }
+                        Node::from(entity)
+                    })
+                    .collect(),
                 trace,
                 has_next_page,
                 has_previous_page,
