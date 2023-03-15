@@ -778,6 +778,7 @@ fn query_field_for_fulltext(fulltext: &Directive) -> Option<Field> {
             "where",
             "",
             Type::NamedType(format!("{}_filter", entity_name)),
+            None,
         ),
     ];
 
