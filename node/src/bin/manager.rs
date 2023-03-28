@@ -252,12 +252,12 @@ pub enum Command {
     Prune {
         /// The deployment to prune (see `help info`)
         deployment: DeploymentSearch,
-        /// Prune by copying when removing more than this fraction of
-        /// history. Defaults to GRAPH_STORE_HISTORY_COPY_THRESHOLD
+        /// Prune by rebuilding tables when removing more than this fraction
+        /// of history. Defaults to GRAPH_STORE_HISTORY_REBUILD_THRESHOLD
         #[clap(long, short)]
-        copy_threshold: Option<f64>,
+        rebuild_threshold: Option<f64>,
         /// Prune by deleting when removing more than this fraction of
-        /// history but less than copy_threshold. Defaults to
+        /// history but less than rebuild_threshold. Defaults to
         /// GRAPH_STORE_HISTORY_DELETE_THRESHOLD
         #[clap(long, short)]
         delete_threshold: Option<f64>,
@@ -1388,7 +1388,7 @@ async fn main() -> anyhow::Result<()> {
         Prune {
             deployment,
             history,
-            copy_threshold,
+            rebuild_threshold,
             delete_threshold,
             once,
         } => {
@@ -1398,7 +1398,7 @@ async fn main() -> anyhow::Result<()> {
                 primary_pool,
                 deployment,
                 history,
-                copy_threshold,
+                rebuild_threshold,
                 delete_threshold,
                 once,
             )
