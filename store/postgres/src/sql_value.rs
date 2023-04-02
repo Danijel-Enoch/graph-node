@@ -1,6 +1,6 @@
 use diesel::pg::Pg;
 use diesel::serialize::{self, Output, ToSql};
-use diesel::sql_types::{Binary, Bool, Integer, Text};
+use diesel::sql_types::{Binary, Bool, Integer, Text, Int8};
 use graph::prelude::anyhow::anyhow;
 use std::io::Write;
 use std::str::FromStr;
@@ -35,6 +35,19 @@ impl ToSql<Integer, Pg> for SqlValue {
             Value::Int(i) => <i32 as ToSql<Integer, Pg>>::to_sql(i, out),
             v => Err(anyhow!(
                 "Failed to convert non-int attribute value to int in SQL: {}",
+                v
+            )
+            .into()),
+        }
+    }
+}
+
+impl ToSql<Int8, Pg> for SqlValue {
+    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
+        match &self.0 {
+            Value::Int8(i) => <i64 as ToSql<Int8, Pg>>::to_sql(i, out),
+            v => Err(anyhow!(
+                "Failed to convert non-int8 attribute value to int8 in SQL: {}",
                 v
             )
             .into()),

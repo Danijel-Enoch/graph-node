@@ -267,6 +267,7 @@ impl Value {
                     Err(Value::Int(num))
                 }
             }
+            ("Int8", Value::Int(num)) => Ok(Value::Int(num)),
             ("String", Value::String(s)) => Ok(Value::String(s)),
             ("ID", Value::String(s)) => Ok(Value::String(s)),
             ("ID", Value::Int(n)) => Ok(Value::String(n.to_string())),

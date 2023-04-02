@@ -174,6 +174,7 @@ fn test_schema(id: DeploymentHash, id_type: IdType) -> Schema {
         mainBand: Band
         bands: [Band!]!
         writtenSongs: [Song!]! @derivedFrom(field: \"writtenBy\")
+        favoriteCount: Int8!
     }
 
     type Band @entity {
@@ -316,8 +317,8 @@ async fn insert_test_entities(
     let s = id_type.songs();
     let md = id_type.medias();
     let entities0 = vec![
-        entity! { __typename: "Musician", id: "m1", name: "John", mainBand: "b1", bands: vec!["b1", "b2"] },
-        entity! { __typename: "Musician", id: "m2", name: "Lisa", mainBand: "b1", bands: vec!["b1"] },
+        entity! { __typename: "Musician", id: "m1", name: "John", mainBand: "b1", bands: vec!["b1", "b2"], favoriteCount: 2 },
+        entity! { __typename: "Musician", id: "m2", name: "Lisa", mainBand: "b1", bands: vec!["b1"], favoriteCount: 100 },
         entity! { __typename: "Publisher", id: "0xb1" },
         entity! { __typename: "Band", id: "b1", name: "The Musicians", originalSongs: vec![s[1], s[2]] },
         entity! { __typename: "Band", id: "b2", name: "The Amateurs",  originalSongs: vec![s[1], s[3], s[4]] },
@@ -348,8 +349,8 @@ async fn insert_test_entities(
     ];
 
     let entities1 = vec![
-        entity! { __typename: "Musician", id: "m3", name: "Tom", mainBand: "b2", bands: vec!["b1", "b2"] },
-        entity! { __typename: "Musician", id: "m4", name: "Valerie", bands: Vec::<String>::new() },
+        entity! { __typename: "Musician", id: "m3", name: "Tom", mainBand: "b2", bands: vec!["b1", "b2"], favoriteCount: 5 },
+        entity! { __typename: "Musician", id: "m4", name: "Valerie", bands: Vec::<String>::new(), favoriteCount: 10 },
     ];
 
     async fn insert_at(entities: Vec<Entity>, deployment: &DeploymentLocator, block_ptr: BlockPtr) {
@@ -570,6 +571,7 @@ fn can_query_one_to_one_relationship() {
             mainBand {
                 name
             }
+            favoriteCount
         }
         songStats(first: 100, orderBy: id) {
             id
@@ -586,10 +588,10 @@ fn can_query_one_to_one_relationship() {
         let s = id_type.songs();
         let exp = object! {
             musicians: vec![
-                object! { name: "John", mainBand: object! { name: "The Musicians" } },
-                object! { name: "Lisa", mainBand: object! { name: "The Musicians" } },
-                object! { name: "Tom",  mainBand: object! { name: "The Amateurs"} },
-                object! { name: "Valerie", mainBand: r::Value::Null }
+                object! { name: "John", mainBand: object! { name: "The Musicians" }, favoriteCount: 2 },
+                object! { name: "Lisa", mainBand: object! { name: "The Musicians" }, favoriteCount: 100 },
+                object! { name: "Tom",  mainBand: object! { name: "The Amateurs" }, favoriteCount: 5 },
+                object! { name: "Valerie", mainBand: r::Value::Null, favoriteCount: 10 }
             ],
             songStats: vec![
                 object! {

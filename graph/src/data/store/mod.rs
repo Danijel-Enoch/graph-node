@@ -130,6 +130,7 @@ pub const ID: &str = "ID";
 pub const BYTES_SCALAR: &str = "Bytes";
 pub const BIG_INT_SCALAR: &str = "BigInt";
 pub const BIG_DECIMAL_SCALAR: &str = "BigDecimal";
+pub const INT8_SCALAR: &str = "Int8";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueType {
@@ -138,6 +139,7 @@ pub enum ValueType {
     Bytes,
     BigDecimal,
     Int,
+    Int8,
     String,
 }
 
@@ -151,6 +153,7 @@ impl FromStr for ValueType {
             "Bytes" => Ok(ValueType::Bytes),
             "BigDecimal" => Ok(ValueType::BigDecimal),
             "Int" => Ok(ValueType::Int),
+            "Int8" => Ok(ValueType::Int8),
             "String" | "ID" => Ok(ValueType::String),
             s => Err(anyhow!("Type not available in this context: {}", s)),
         }
@@ -172,6 +175,7 @@ impl ValueType {
 pub enum Value {
     String(String),
     Int(i32),
+    Int8(i64),
     BigDecimal(scalar::BigDecimal),
     Bool(bool),
     List(Vec<Value>),
@@ -205,6 +209,9 @@ impl stable_hash_legacy::StableHash for Value {
                 stable_hash_legacy::StableHash::stable_hash(inner, sequence_number, state)
             }
             Int(inner) => {
+                stable_hash_legacy::StableHash::stable_hash(inner, sequence_number, state)
+            }
+            Int8(inner) => {
                 stable_hash_legacy::StableHash::stable_hash(inner, sequence_number, state)
             }
             BigDecimal(inner) => {
@@ -264,6 +271,10 @@ impl StableHash for Value {
             BigInt(inner) => {
                 inner.stable_hash(field_address.child(0), state);
                 7
+            },
+            Int8(inner) => {
+                inner.stable_hash(field_address.child(0), state);
+                8
             }
         };
 
@@ -300,6 +311,7 @@ impl Value {
                     BYTES_SCALAR => Value::Bytes(scalar::Bytes::from_str(s)?),
                     BIG_INT_SCALAR => Value::BigInt(scalar::BigInt::from_str(s)?),
                     BIG_DECIMAL_SCALAR => Value::BigDecimal(scalar::BigDecimal::from_str(s)?),
+                    INT8_SCALAR => Value::Int8(s.parse::<i64>().map_err(|_| QueryExecutionError::ValueParseError("Int8".to_string(), format!("{}", s)))?),
                     _ => Value::String(s.clone()),
                 }
             }
@@ -391,6 +403,7 @@ impl Value {
             Value::Bool(_) => "Boolean".to_owned(),
             Value::Bytes(_) => "Bytes".to_owned(),
             Value::Int(_) => "Int".to_owned(),
+            Value::Int8(_) => "Int8".to_owned(),
             Value::List(values) => {
                 if let Some(v) = values.first() {
                     format!("[{}]", v.type_name())
@@ -411,6 +424,7 @@ impl Value {
             | (Value::Bool(_), ValueType::Boolean)
             | (Value::Bytes(_), ValueType::Bytes)
             | (Value::Int(_), ValueType::Int)
+            | (Value::Int8(_), ValueType::Int8)
             | (Value::Null, _) => true,
             (Value::List(values), _) if is_list => values
                 .iter()
@@ -428,6 +442,7 @@ impl fmt::Display for Value {
             match self {
                 Value::String(s) => s.to_string(),
                 Value::Int(i) => i.to_string(),
+                Value::Int8(i) => i.to_string(),
                 Value::BigDecimal(d) => d.to_string(),
                 Value::Bool(b) => b.to_string(),
                 Value::Null => "null".to_string(),
@@ -445,6 +460,7 @@ impl fmt::Debug for Value {
         match self {
             Self::String(s) => f.debug_tuple("String").field(s).finish(),
             Self::Int(i) => f.debug_tuple("Int").field(i).finish(),
+            Self::Int8(i) => f.debug_tuple("Int8").field(i).finish(),
             Self::BigDecimal(d) => d.fmt(f),
             Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
             Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
@@ -460,6 +476,7 @@ impl From<Value> for q::Value {
         match value {
             Value::String(s) => q::Value::String(s),
             Value::Int(i) => q::Value::Int(q::Number::from(i)),
+            Value::Int8(i) => q::Value::String(i.to_string()),
             Value::BigDecimal(d) => q::Value::String(d.to_string()),
             Value::Bool(b) => q::Value::Boolean(b),
             Value::Null => q::Value::Null,
@@ -477,6 +494,7 @@ impl From<Value> for r::Value {
         match value {
             Value::String(s) => r::Value::String(s),
             Value::Int(i) => r::Value::Int(i as i64),
+            Value::Int8(i) => r::Value::String(i.to_string()),
             Value::BigDecimal(d) => r::Value::String(d.to_string()),
             Value::Bool(b) => r::Value::Boolean(b),
             Value::Null => r::Value::Null,

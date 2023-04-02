@@ -9,7 +9,7 @@ use diesel::pg::{Pg, PgConnection};
 use diesel::query_builder::{AstPass, QueryFragment, QueryId};
 use diesel::query_dsl::{LoadQuery, RunQueryDsl};
 use diesel::result::{Error as DieselError, QueryResult};
-use diesel::sql_types::{Array, BigInt, Binary, Bool, Integer, Jsonb, Text};
+use diesel::sql_types::{Array, BigInt, Binary, Bool, Integer, Jsonb, Text, Int8};
 use diesel::Connection;
 
 use graph::components::store::{DerivedEntityQuery, EntityKey};
@@ -314,6 +314,15 @@ pub trait FromColumnValue: Sized + std::fmt::Debug {
                     number
                 ))),
             },
+            (j::Number(number), ColumnType::Int8) => match number.as_i64() {
+                Some(i) => i32::try_from(i).map(Self::from_i32).map_err(|e| {
+                    StoreError::Unknown(anyhow!("failed to convert {} to Int8: {}", number, e))
+                }),
+                None => Err(StoreError::Unknown(anyhow!(
+                    "failed to convert {} to Int8",
+                    number
+                ))),
+            },
             (j::Number(number), ColumnType::BigDecimal) => {
                 let s = number.to_string();
                 scalar::BigDecimal::from_str(s.as_str())
@@ -572,6 +581,7 @@ impl<'a> QueryFragment<Pg> for QueryValue<'a> {
                 ),
             },
             Value::Int(i) => out.push_bind_param::<Integer, _>(i),
+            Value::Int8(i) => out.push_bind_param::<Int8, _>(i),
             Value::BigDecimal(d) => {
                 out.push_bind_param::<Text, _>(&d.to_string())?;
                 out.push_sql("::numeric");
@@ -590,6 +600,7 @@ impl<'a> QueryFragment<Pg> for QueryValue<'a> {
                     ColumnType::Boolean => out.push_bind_param::<Array<Bool>, _>(&sql_values),
                     ColumnType::Bytes => out.push_bind_param::<Array<Binary>, _>(&sql_values),
                     ColumnType::Int => out.push_bind_param::<Array<Integer>, _>(&sql_values),
+                    ColumnType::Int8 => out.push_bind_param::<Array<Int8>, _>(&sql_values),
                     ColumnType::String => out.push_bind_param::<Array<Text>, _>(&sql_values),
                     ColumnType::Enum(enum_type) => {
                         out.push_bind_param::<Array<Text>, _>(&sql_values)?;
@@ -1168,6 +1179,7 @@ impl<'a> QueryFilter<'a> {
             Value::Null
             | Value::BigDecimal(_)
             | Value::Int(_)
+            | Value::Int8(_)
             | Value::Bool(_)
             | Value::BigInt(_) => {
                 let filter = match negated {
@@ -1238,6 +1250,7 @@ impl<'a> QueryFilter<'a> {
                 | Value::Bytes(_)
                 | Value::BigDecimal(_)
                 | Value::Int(_)
+                | Value::Int8(_)
                 | Value::String(_) => QueryValue(value, &column.column_type).walk_ast(out)?,
                 Value::Bool(_) | Value::List(_) | Value::Null => {
                     return Err(UnsupportedFilter {
@@ -1377,6 +1390,7 @@ impl<'a> QueryFilter<'a> {
             | Value::Bytes(_)
             | Value::BigDecimal(_)
             | Value::Int(_)
+            | Value::Int8(_)
             | Value::List(_)
             | Value::Null => {
                 return Err(UnsupportedFilter {
