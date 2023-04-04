@@ -12,14 +12,14 @@ services:
       - ipfs
       - postgres
     extra_hosts:
-      - host.docker.internal:host-gateway
+      - 172.18.0.1:host-gateway
     environment:
       postgres_host: postgres
       postgres_user: graph-node
       postgres_pass: let-me-in
       postgres_db: graph-node
       ipfs: 'ipfs:5001'
-      ethereum: 'mainnet:http://host.docker.internal:8545'
+      ethereum: 'mainnet:https://rpc.test.btcs.network'
       GRAPH_LOG: info
   ipfs:
     image: ipfs/go-ipfs:v0.10.0
